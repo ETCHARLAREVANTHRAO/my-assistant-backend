@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+faiss_index/
+chroma_db/
+*.egg-info/
+.venv/
+venv/
