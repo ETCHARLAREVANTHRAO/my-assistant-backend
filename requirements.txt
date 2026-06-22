@@ -18,3 +18,12 @@ sentence-transformers==3.3.1
 
 # HTTP client for weather
 httpx==0.28.1
+
+# Web search tool (free, no API key needed)
+duckduckgo-search>=6.3.0
+
+# Document parsing (PDF, Word, images)
+pypdf>=4.0.0
+python-docx>=1.1.0
+Pillow>=10.0.0
+pytesseract>=0.3.10

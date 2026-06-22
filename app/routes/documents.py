@@ -1,20 +1,30 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from app.models import DocumentUploadResponse, DocumentListResponse
-from app.core.rag import ingest_markdown, delete_document, list_documents
+from app.core.rag import ingest_document, delete_document, list_documents
 
 router = APIRouter(prefix="/documents", tags=["documents"])
+
+SUPPORTED_EXTENSIONS = {"md", "txt", "pdf", "docx", "jpg", "jpeg", "png", "bmp", "tiff", "webp"}
 
 
 @router.post("/upload", response_model=DocumentUploadResponse)
 async def upload_document(file: UploadFile = File(...)):
-    if not file.filename.endswith(".md"):
-        raise HTTPException(status_code=400, detail="Only .md (Markdown) files are supported")
+    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+    if ext not in SUPPORTED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type '.{ext}'. Supported: {', '.join(sorted(SUPPORTED_EXTENSIONS))}"
+        )
 
-    content = (await file.read()).decode("utf-8")
-    if not content.strip():
+    content_bytes = await file.read()
+    if not content_bytes:
         raise HTTPException(status_code=400, detail="File is empty")
 
-    chunks = ingest_markdown(content, file.filename)
+    try:
+        chunks = ingest_document(content_bytes, file.filename)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
     return DocumentUploadResponse(
         filename=file.filename,
         chunks_stored=chunks,
