@@ -2,7 +2,7 @@ import io
 import os
 import httpx
 from langchain_groq import ChatGroq
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage, AIMessage
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 
 from .vectorstore import add_documents, delete_by_source, list_sources
@@ -23,6 +23,10 @@ Document context from the user's uploaded files may be provided below. Follow th
 6. Only call one tool at a time. Never call a tool if the document context already answers the question.
 
 Be concise, accurate, and friendly."""
+
+
+_conversation_history: list = []
+MAX_HISTORY_TURNS = 10  # keep last 10 messages (5 user + 5 assistant)
 
 
 def _get_llm() -> ChatGroq:
@@ -118,11 +122,11 @@ def _search_docs_sync(query: str) -> str:
 
 
 async def chat(message: str) -> dict:
-    """RAG + tool-calling chat. Documents are always searched directly; other tools use Groq tool calling."""
-    # Always search documents first — bypass tool calling for this
+    """RAG + tool-calling chat with conversation history."""
+    global _conversation_history
+
     doc_context = _search_docs_sync(message)
 
-    # Only pass simple tools to the LLM (weather, date, calendar, internet search)
     from .tools import get_weather, get_datetime, add_calendar_event, get_calendar_events, internet_search
     action_tools = [get_weather, get_datetime, add_calendar_event, get_calendar_events, internet_search]
     tools_by_name = {t.name: t for t in action_tools}
@@ -133,15 +137,22 @@ async def chat(message: str) -> dict:
     if doc_context:
         system_with_context += f"\n\n--- Relevant content from user's documents ---\n{doc_context}\n---"
 
-    messages = [SystemMessage(content=system_with_context), HumanMessage(content=message)]
+    # Build messages: system + recent history + current message
+    messages = (
+        [SystemMessage(content=system_with_context)]
+        + _conversation_history[-MAX_HISTORY_TURNS:]
+        + [HumanMessage(content=message)]
+    )
 
+    reply = None
     try:
         for _ in range(5):
             response = await llm_with_tools.ainvoke(messages)
             messages.append(response)
 
             if not response.tool_calls:
-                return {"reply": response.content or "Sorry, I could not generate a response.", "sources": []}
+                reply = response.content or "Sorry, I could not generate a response."
+                break
 
             for tc in response.tool_calls:
                 tool = tools_by_name.get(tc["name"])
@@ -159,6 +170,21 @@ async def chat(message: str) -> dict:
             SystemMessage(content="You are a helpful assistant. Answer directly and concisely. Do not call any tools."),
             HumanMessage(content=f"{system_with_context}\n\nUser question: {message}")
         ])
-        return {"reply": fallback.content or "Sorry, I could not generate a response.", "sources": []}
+        reply = fallback.content or "Sorry, I could not generate a response."
 
-    return {"reply": "Sorry, I could not complete the request.", "sources": []}
+    if not reply:
+        reply = "Sorry, I could not complete the request."
+
+    # Save this turn to history
+    _conversation_history.append(HumanMessage(content=message))
+    _conversation_history.append(AIMessage(content=reply))
+    # Trim to max turns
+    if len(_conversation_history) > MAX_HISTORY_TURNS:
+        _conversation_history = _conversation_history[-MAX_HISTORY_TURNS:]
+
+    return {"reply": reply, "sources": []}
+
+
+def clear_history():
+    global _conversation_history
+    _conversation_history = []
