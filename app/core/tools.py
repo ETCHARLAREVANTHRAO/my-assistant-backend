@@ -28,8 +28,13 @@ def search_documents(query: str) -> str:
 def internet_search(query: str) -> str:
     """Search the internet for current news, sports scores, facts, or anything not in the user's documents."""
     try:
-        from langchain_community.tools import DuckDuckGoSearchRun
-        return DuckDuckGoSearchRun().run(query)
+        from duckduckgo_search import DDGS
+        results = DDGS().text(query, max_results=5)
+        if not results:
+            return "No results found."
+        return "\n\n".join(
+            f"{r['title']}\n{r['body']}" for r in results
+        )
     except Exception as e:
         return f"Web search failed: {e}"
 
