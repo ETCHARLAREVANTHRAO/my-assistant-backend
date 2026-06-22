@@ -1,8 +1,21 @@
 import io
 import os
 import httpx
+from datetime import datetime
+from pathlib import Path
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage, AIMessage
+
+LOG_FILE = Path("./logs.txt")
+
+def _log(entry: str):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line = f"[{timestamp}] {entry}\n"
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(line)
+    except Exception:
+        pass
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 
 from .vectorstore import add_documents, delete_by_source, list_sources
@@ -124,6 +137,7 @@ def _search_docs_sync(query: str) -> str:
 async def chat(message: str) -> dict:
     """RAG + tool-calling chat with conversation history."""
     global _conversation_history
+    _log(f"USER: {message}")
 
     doc_context = _search_docs_sync(message)
 
@@ -155,6 +169,7 @@ async def chat(message: str) -> dict:
                 break
 
             for tc in response.tool_calls:
+                _log(f"TOOL CALL: {tc['name']}({tc['args']})")
                 tool = tools_by_name.get(tc["name"])
                 if tool:
                     try:
@@ -163,9 +178,11 @@ async def chat(message: str) -> dict:
                         result = f"Tool error: {e}"
                 else:
                     result = f"Unknown tool: {tc['name']}"
+                _log(f"TOOL RESULT: {str(result)[:300]}")
                 messages.append(ToolMessage(content=str(result), tool_call_id=tc["id"]))
 
-    except Exception:
+    except Exception as e:
+        _log(f"ERROR: {e}")
         fallback = await llm_plain.ainvoke([
             SystemMessage(content="You are a helpful assistant. Answer directly and concisely. Do not call any tools."),
             HumanMessage(content=f"{system_with_context}\n\nUser question: {message}")
@@ -174,6 +191,9 @@ async def chat(message: str) -> dict:
 
     if not reply:
         reply = "Sorry, I could not complete the request."
+
+    _log(f"REPLY: {reply[:300]}")
+    _log("-" * 60)
 
     # Save this turn to history
     _conversation_history.append(HumanMessage(content=message))
