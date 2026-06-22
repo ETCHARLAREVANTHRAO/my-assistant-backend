@@ -1,21 +1,22 @@
 import os
 from pathlib import Path
 from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
 
 FAISS_INDEX_DIR = os.getenv("CHROMA_PERSIST_DIR", "./faiss_index")
 INDEX_FILE = "index"
+HF_API_TOKEN = os.getenv("HF_API_TOKEN", "")
 
 _embeddings = None
 _vectorstore: FAISS | None = None
 
 
-def get_embeddings() -> HuggingFaceEmbeddings:
+def get_embeddings() -> HuggingFaceInferenceAPIEmbeddings:
     global _embeddings
     if _embeddings is None:
-        _embeddings = HuggingFaceEmbeddings(
-            model_name="all-MiniLM-L6-v2",
-            model_kwargs={"device": "cpu"},
+        _embeddings = HuggingFaceInferenceAPIEmbeddings(
+            api_key=HF_API_TOKEN,
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
         )
     return _embeddings
 
