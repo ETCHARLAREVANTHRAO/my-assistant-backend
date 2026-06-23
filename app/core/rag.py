@@ -160,10 +160,13 @@ async def chat(message: str, user_id: str = "anonymous") -> dict:
     )
 
     reply = None
+    total_tokens = 0
     try:
         for _ in range(5):
             response = await llm_with_tools.ainvoke(messages)
             messages.append(response)
+            usage = getattr(response, "usage_metadata", None) or {}
+            total_tokens += usage.get("total_tokens", 0)
 
             if not response.tool_calls:
                 reply = response.content or "Sorry, I could not generate a response."
@@ -188,6 +191,8 @@ async def chat(message: str, user_id: str = "anonymous") -> dict:
             SystemMessage(content="You are a helpful assistant. Answer directly and concisely. Do not call any tools."),
             HumanMessage(content=f"{system_with_context}\n\nUser question: {message}")
         ])
+        usage = getattr(fallback, "usage_metadata", None) or {}
+        total_tokens += usage.get("total_tokens", 0)
         reply = fallback.content or "Sorry, I could not generate a response."
 
     if not reply:
@@ -201,7 +206,7 @@ async def chat(message: str, user_id: str = "anonymous") -> dict:
     if len(history) > MAX_HISTORY_TURNS:
         _conversation_history[user_id] = history[-MAX_HISTORY_TURNS:]
 
-    return {"reply": reply, "sources": []}
+    return {"reply": reply, "sources": [], "tokens_used": total_tokens}
 
 
 def clear_history():

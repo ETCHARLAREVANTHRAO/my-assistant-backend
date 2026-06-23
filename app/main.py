@@ -5,7 +5,7 @@ from dotenv import load_dotenv, find_dotenv
 
 load_dotenv(find_dotenv(usecwd=True))
 
-from app.routes import chat, documents, weather
+from app.routes import chat, documents, weather, usage
 
 
 @asynccontextmanager
@@ -47,6 +47,7 @@ app.add_middleware(
 app.include_router(chat.router)
 app.include_router(documents.router)
 app.include_router(weather.router)
+app.include_router(usage.router)
 
 
 @app.get("/health")
