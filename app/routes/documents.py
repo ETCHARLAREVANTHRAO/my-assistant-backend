@@ -1,6 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from app.models import DocumentUploadResponse, DocumentListResponse
-from app.core.rag import ingest_document, delete_document, list_documents
+from app.core.rag import ingest_document, delete_document, list_documents, _log
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -24,6 +24,11 @@ async def upload_document(file: UploadFile = File(...)):
         chunks = ingest_document(content_bytes, file.filename)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        import traceback
+        detail = f"{type(e).__name__}: {e}"
+        _log(f"INGEST ERROR [{file.filename}]: {traceback.format_exc()}")
+        raise HTTPException(status_code=422, detail=detail)
 
     return DocumentUploadResponse(
         filename=file.filename,
