@@ -5,9 +5,12 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Pre-download the fastembed model at build time so it's never fetched at runtime
+RUN python -c "from fastembed import TextEmbedding; TextEmbedding('BAAI/bge-small-en-v1.5')"
+
 COPY . .
 
-RUN mkdir -p chroma_db
+RUN mkdir -p faiss_index
 
 EXPOSE 8000
 
