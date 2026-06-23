@@ -27,3 +27,6 @@ pypdf>=4.0.0
 python-docx>=1.1.0
 Pillow>=10.0.0
 pytesseract>=0.3.10
+
+# Firebase authentication
+firebase-admin>=6.5.0

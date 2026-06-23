@@ -38,8 +38,8 @@ Document context from the user's uploaded files may be provided below. Follow th
 Be concise, accurate, and friendly."""
 
 
-_conversation_history: list = []
-MAX_HISTORY_TURNS = 10  # keep last 10 messages (5 user + 5 assistant)
+_conversation_history: dict = {}  # user_id -> list of messages
+MAX_HISTORY_TURNS = 10
 
 
 def _get_llm() -> ChatGroq:
@@ -134,10 +134,14 @@ def _search_docs_sync(query: str) -> str:
         return ""
 
 
-async def chat(message: str) -> dict:
-    """RAG + tool-calling chat with conversation history."""
+async def chat(message: str, user_id: str = "anonymous") -> dict:
+    """RAG + tool-calling chat with per-user conversation history."""
     global _conversation_history
-    _log(f"USER: {message}")
+    _log(f"USER [{user_id[:8]}]: {message}")
+
+    if user_id not in _conversation_history:
+        _conversation_history[user_id] = []
+    history = _conversation_history[user_id]
 
     doc_context = _search_docs_sync(message)
 
@@ -151,10 +155,9 @@ async def chat(message: str) -> dict:
     if doc_context:
         system_with_context += f"\n\n--- Relevant content from user's documents ---\n{doc_context}\n---"
 
-    # Build messages: system + recent history + current message
     messages = (
         [SystemMessage(content=system_with_context)]
-        + _conversation_history[-MAX_HISTORY_TURNS:]
+        + history[-MAX_HISTORY_TURNS:]
         + [HumanMessage(content=message)]
     )
 
@@ -195,12 +198,10 @@ async def chat(message: str) -> dict:
     _log(f"REPLY: {reply[:300]}")
     _log("-" * 60)
 
-    # Save this turn to history
-    _conversation_history.append(HumanMessage(content=message))
-    _conversation_history.append(AIMessage(content=reply))
-    # Trim to max turns
-    if len(_conversation_history) > MAX_HISTORY_TURNS:
-        _conversation_history = _conversation_history[-MAX_HISTORY_TURNS:]
+    history.append(HumanMessage(content=message))
+    history.append(AIMessage(content=reply))
+    if len(history) > MAX_HISTORY_TURNS:
+        _conversation_history[user_id] = history[-MAX_HISTORY_TURNS:]
 
     return {"reply": reply, "sources": []}
 
