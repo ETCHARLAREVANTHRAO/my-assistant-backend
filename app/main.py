@@ -11,8 +11,20 @@ from app.routes import chat, documents, weather
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     from app.core.vectorstore import get_embeddings, get_vectorstore
+    from app.core.rag import ingest_text
+    from app.core import firestore_service
+
     get_embeddings()   # load ONNX model into memory
     get_vectorstore()  # initialise FAISS index
+
+    # Rebuild FAISS from Firestore so documents survive Render restarts
+    try:
+        for doc in firestore_service.get_all_documents():
+            if doc.get("text"):
+                ingest_text(doc["text"], doc["filename"], doc["user_id"])
+    except Exception:
+        pass  # Firebase may not be ready in local dev without credentials
+
     yield
 
 
@@ -35,13 +47,6 @@ app.add_middleware(
 app.include_router(chat.router)
 app.include_router(documents.router)
 app.include_router(weather.router)
-
-
-@app.on_event("startup")
-async def _preload():
-    from app.core.vectorstore import get_embeddings, get_vectorstore
-    get_embeddings()   # load ONNX model into memory
-    get_vectorstore()  # initialise FAISS index
 
 
 @app.get("/health")

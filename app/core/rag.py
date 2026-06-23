@@ -18,7 +18,7 @@ def _log(entry: str):
         pass
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 
-from .vectorstore import add_documents, delete_by_source, list_sources
+from .vectorstore import add_documents, delete_by_source, search_documents
 from .tools import get_all_tools
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -81,8 +81,8 @@ def _extract_text(content_bytes: bytes, filename: str) -> str:
     return content_bytes.decode("utf-8", errors="ignore")
 
 
-def ingest_document(content_bytes: bytes, filename: str) -> int:
-    """Parse any supported file type, chunk it, and store in FAISS. Returns chunk count."""
+def ingest_document(content_bytes: bytes, filename: str, user_id: str = "") -> tuple[int, str]:
+    """Parse any supported file type, chunk it, store in FAISS. Returns (chunk_count, extracted_text)."""
     text = _extract_text(content_bytes, filename)
     if not text.strip():
         raise ValueError("No text could be extracted from the file.")
@@ -101,37 +101,35 @@ def ingest_document(content_bytes: bytes, filename: str) -> int:
 
     for doc in docs:
         doc.metadata["source"] = filename
-    add_documents(docs)
-    return len(docs)
+    add_documents(docs, user_id)
+    return len(docs), text
 
 
-def ingest_markdown(content: str, filename: str) -> int:
-    """Legacy wrapper kept for compatibility."""
-    return ingest_document(content.encode(), filename)
-
-
-def delete_document(filename: str):
-    delete_by_source(filename)
-
-
-def list_documents() -> list[str]:
-    return list_sources()
-
-
-def _search_docs_sync(query: str) -> str:
-    """Search vectorstore and return top chunks (excluding the bootstrap placeholder)."""
-    from .vectorstore import get_vectorstore
-    try:
-        vs = get_vectorstore()
-        docs = vs.similarity_search(query, k=4)
-        docs = [d for d in docs if d.metadata.get("source") != "__init__"]
-        if not docs:
-            return ""
-        return "\n\n---\n\n".join(
-            f"[{d.metadata.get('source', 'unknown')}]\n{d.page_content}" for d in docs
+def ingest_text(text: str, filename: str, user_id: str):
+    """Re-ingest already-extracted text into FAISS (used at startup to rebuild from Firestore)."""
+    if not text.strip():
+        return
+    ext = filename.rsplit(".", 1)[-1].lower()
+    char_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
+    if ext == "md":
+        header_splitter = MarkdownHeaderTextSplitter(
+            headers_to_split_on=[("#", "h1"), ("##", "h2"), ("###", "h3")],
+            strip_headers=False,
         )
-    except Exception:
-        return ""
+        docs = char_splitter.split_documents(header_splitter.split_text(text))
+    else:
+        docs = char_splitter.create_documents([text])
+    for doc in docs:
+        doc.metadata["source"] = filename
+    add_documents(docs, user_id)
+
+
+def delete_document(filename: str, user_id: str = ""):
+    delete_by_source(filename, user_id)
+
+
+def _search_docs_sync(query: str, user_id: str = "") -> str:
+    return search_documents(query, user_id=user_id)
 
 
 async def chat(message: str, user_id: str = "anonymous") -> dict:
@@ -143,7 +141,7 @@ async def chat(message: str, user_id: str = "anonymous") -> dict:
         _conversation_history[user_id] = []
     history = _conversation_history[user_id]
 
-    doc_context = _search_docs_sync(message)
+    doc_context = _search_docs_sync(message, user_id=user_id)
 
     from .tools import get_weather, get_datetime, add_calendar_event, get_calendar_events, internet_search
     action_tools = [get_weather, get_datetime, add_calendar_event, get_calendar_events, internet_search]

@@ -29,11 +29,10 @@ def get_vectorstore() -> FAISS:
             allow_dangerous_deserialization=True,
         )
     else:
-        # Bootstrap with a placeholder so FAISS has a valid index
         _vectorstore = FAISS.from_texts(
             ["Assistant initialized."],
             get_embeddings(),
-            metadatas=[{"source": "__init__"}],
+            metadatas=[{"source": "__init__", "user_id": ""}],
         )
         _save()
 
@@ -45,34 +44,46 @@ def _save():
     _vectorstore.save_local(FAISS_INDEX_DIR, index_name=INDEX_FILE)
 
 
-def add_documents(docs):
+def add_documents(docs, user_id: str = ""):
+    for doc in docs:
+        doc.metadata["user_id"] = user_id
     vs = get_vectorstore()
     vs.add_documents(docs)
     _save()
 
 
-def delete_by_source(filename: str):
-    """Remove all vectors whose metadata source matches filename."""
+def search_documents(query: str, user_id: str = "", k: int = 4) -> str:
+    """Semantic search filtered to a specific user's documents."""
+    try:
+        vs = get_vectorstore()
+        candidates = vs.similarity_search(query, k=40)
+        # Filter by user and strip the bootstrap placeholder
+        matches = [
+            d for d in candidates
+            if d.metadata.get("source") != "__init__"
+            and (not user_id or d.metadata.get("user_id") == user_id)
+        ]
+        if not matches:
+            return ""
+        return "\n\n---\n\n".join(
+            f"[{d.metadata.get('source', 'unknown')}]\n{d.page_content}"
+            for d in matches[:k]
+        )
+    except Exception:
+        return ""
+
+
+def delete_by_source(filename: str, user_id: str = ""):
     global _vectorstore
     vs = get_vectorstore()
-    all_data = vs.docstore._dict
     ids_to_remove = [
-        doc_id for doc_id, doc in all_data.items()
+        doc_id for doc_id, doc in vs.docstore._dict.items()
         if doc.metadata.get("source") == filename
+        and (not user_id or doc.metadata.get("user_id") == user_id)
     ]
     if ids_to_remove:
         vs.delete(ids_to_remove)
         _save()
-
-
-def list_sources() -> list[str]:
-    vs = get_vectorstore()
-    sources = {
-        doc.metadata.get("source", "")
-        for doc in vs.docstore._dict.values()
-        if doc.metadata.get("source") not in ("", "__init__")
-    }
-    return sorted(sources)
 
 
 def reset_vectorstore():

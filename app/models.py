@@ -20,6 +20,8 @@ class DocumentUploadResponse(BaseModel):
 
 class DocumentListResponse(BaseModel):
     documents: list[str]
+    used_bytes: int = 0
+    limit_bytes: int = 0
 
 
 class WeatherResponse(BaseModel):

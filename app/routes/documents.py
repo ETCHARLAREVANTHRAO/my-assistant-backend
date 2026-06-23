@@ -1,6 +1,8 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from app.models import DocumentUploadResponse, DocumentListResponse
-from app.core.rag import ingest_document, delete_document, list_documents, _log
+from app.core.rag import ingest_document, delete_document, _log
+from app.core.auth import verify_token
+from app.core import firestore_service
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -8,42 +10,64 @@ SUPPORTED_EXTENSIONS = {"md", "txt", "pdf", "docx", "jpg", "jpeg", "png", "bmp",
 
 
 @router.post("/upload", response_model=DocumentUploadResponse)
-async def upload_document(file: UploadFile = File(...)):
+async def upload_document(
+    file: UploadFile = File(...),
+    user_id: str = Depends(verify_token),
+):
     ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
     if ext not in SUPPORTED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported file type '.{ext}'. Supported: {', '.join(sorted(SUPPORTED_EXTENSIONS))}"
+            detail=f"Unsupported file type '.{ext}'. Supported: {', '.join(sorted(SUPPORTED_EXTENSIONS))}",
         )
 
     content_bytes = await file.read()
     if not content_bytes:
-        raise HTTPException(status_code=400, detail="File is empty")
+        raise HTTPException(status_code=400, detail="File is empty.")
+
+    # Quota check
+    used = firestore_service.get_user_size(user_id)
+    limit = firestore_service.LIMIT_BYTES
+    if used + len(content_bytes) > limit:
+        used_mb = used / (1024 * 1024)
+        limit_mb = limit / (1024 * 1024)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Storage limit reached ({used_mb:.1f} MB used of {limit_mb:.0f} MB). "
+                   "Contact admin to increase your limit.",
+        )
 
     try:
-        chunks = ingest_document(content_bytes, file.filename)
+        chunks, text = ingest_document(content_bytes, file.filename, user_id)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         import traceback
-        detail = f"{type(e).__name__}: {e}"
         _log(f"INGEST ERROR [{file.filename}]: {traceback.format_exc()}")
-        raise HTTPException(status_code=422, detail=detail)
+        raise HTTPException(status_code=422, detail=f"{type(e).__name__}: {e}")
+
+    firestore_service.add_document(user_id, file.filename, len(content_bytes), chunks, text)
 
     return DocumentUploadResponse(
         filename=file.filename,
         chunks_stored=chunks,
-        message=f"Successfully ingested {chunks} chunks from '{file.filename}'",
+        message=f"'{file.filename}' uploaded successfully ({chunks} chunks).",
     )
 
 
 @router.get("", response_model=DocumentListResponse)
-async def list_docs():
-    docs = list_documents()
-    return DocumentListResponse(documents=docs)
+async def list_docs(user_id: str = Depends(verify_token)):
+    docs = firestore_service.list_documents(user_id)
+    used = firestore_service.get_user_size(user_id)
+    return DocumentListResponse(
+        documents=docs,
+        used_bytes=used,
+        limit_bytes=firestore_service.LIMIT_BYTES,
+    )
 
 
 @router.delete("/{filename}")
-async def delete_doc(filename: str):
-    delete_document(filename)
-    return {"message": f"Deleted '{filename}' from knowledge base"}
+async def delete_doc(filename: str, user_id: str = Depends(verify_token)):
+    delete_document(filename, user_id)
+    firestore_service.delete_document(user_id, filename)
+    return {"message": f"'{filename}' deleted."}
