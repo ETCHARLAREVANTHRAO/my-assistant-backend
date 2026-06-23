@@ -20,7 +20,7 @@ huggingface-hub>=0.20.0
 httpx==0.28.1
 
 # Web search tool (free, no API key needed)
-duckduckgo-search>=6.3.0
+ddgs>=1.0.0
 
 # Document parsing (PDF, Word, images)
 pypdf>=4.0.0

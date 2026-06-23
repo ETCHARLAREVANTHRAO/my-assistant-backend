@@ -11,11 +11,13 @@ def _init_firebase():
     global _initialized
     if _initialized:
         return
-    service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
+    service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "").strip()
     if service_account_json:
         cred = credentials.Certificate(json.loads(service_account_json))
-    else:
+    elif os.path.exists("firebase-service-account.json"):
         cred = credentials.Certificate("firebase-service-account.json")
+    else:
+        raise RuntimeError("Firebase credentials not found. Set FIREBASE_SERVICE_ACCOUNT_JSON env var.")
     firebase_admin.initialize_app(cred)
     _initialized = True
 

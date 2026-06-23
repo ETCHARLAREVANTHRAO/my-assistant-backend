@@ -28,7 +28,7 @@ def search_documents(query: str) -> str:
 def internet_search(query: str) -> str:
     """Search the internet for current news, sports scores, facts, or anything not in the user's documents."""
     try:
-        from duckduckgo_search import DDGS
+        from ddgs import DDGS
         results = DDGS(verify=False).text(query, max_results=5)
         if not results:
             return f"No results found for '{query}'."
