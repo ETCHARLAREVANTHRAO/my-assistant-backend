@@ -142,6 +142,7 @@ async def chat(message: str, user_id: str = "anonymous") -> dict:
     history = _conversation_history[user_id]
 
     doc_context = _search_docs_sync(message, user_id=user_id)
+    _log(f"CONTEXT: {len(doc_context)} chars retrieved for user={user_id[:8]}")
 
     from .tools import get_weather, get_datetime, add_calendar_event, get_calendar_events, internet_search
     action_tools = [get_weather, get_datetime, add_calendar_event, get_calendar_events, internet_search]

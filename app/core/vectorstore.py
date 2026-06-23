@@ -1,14 +1,26 @@
 import os
+from datetime import datetime
 from pathlib import Path
 from langchain_community.vectorstores import FAISS
 from langchain_core.embeddings import Embeddings
 
 FAISS_INDEX_DIR = os.getenv("CHROMA_PERSIST_DIR", "./faiss_index")
 INDEX_FILE = "index"
+_LOG_FILE = Path("./logs.txt")
+
+
+def _log(msg: str):
+    try:
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        _LOG_FILE.open("a", encoding="utf-8").write(f"[{ts}] {msg}\n")
+    except Exception:
+        pass
+
 
 # ── Embeddings ────────────────────────────────────────────────────────────────
 
 _fastembed_model = None
+
 
 def _get_fastembed_model():
     global _fastembed_model
@@ -19,8 +31,6 @@ def _get_fastembed_model():
 
 
 class _FastEmbedWrapper(Embeddings):
-    """Thin wrapper so fastembed works directly with LangChain FAISS."""
-
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         return [e.tolist() for e in _get_fastembed_model().embed(texts)]
 
@@ -36,8 +46,8 @@ def get_embeddings() -> _FastEmbedWrapper:
     global _embeddings
     if _embeddings is None:
         _embeddings = _FastEmbedWrapper()
-        # warm up — confirms model loads at startup, not on first request
         _embeddings.embed_query("warm up")
+        _log("Embeddings loaded (BAAI/bge-small-en-v1.5)")
     return _embeddings
 
 
@@ -54,6 +64,7 @@ def get_vectorstore() -> FAISS:
             str(idx_path), get_embeddings(), index_name=INDEX_FILE,
             allow_dangerous_deserialization=True,
         )
+        _log(f"FAISS loaded from disk ({len(_vectorstore.docstore._dict)} vectors)")
     else:
         _vectorstore = FAISS.from_texts(
             ["Assistant initialized."],
@@ -61,6 +72,7 @@ def get_vectorstore() -> FAISS:
             metadatas=[{"source": "__init__", "user_id": ""}],
         )
         _save()
+        _log("FAISS created fresh (no index on disk)")
 
     return _vectorstore
 
@@ -76,12 +88,10 @@ def add_documents(docs, user_id: str = ""):
     vs = get_vectorstore()
     vs.add_documents(docs)
     _save()
+    _log(f"FAISS: added {len(docs)} chunks for user={user_id[:8]} (total={len(vs.docstore._dict)})")
 
 
 def search_documents(query: str, user_id: str = "", k: int = 4) -> str:
-    """Semantic search filtered to a specific user's documents.
-    Returns formatted context string, or '' if nothing found."""
-    from app.core.rag import _log
     try:
         vs = get_vectorstore()
         total = len(vs.docstore._dict)
@@ -93,8 +103,9 @@ def search_documents(query: str, user_id: str = "", k: int = 4) -> str:
             if d.metadata.get("source") != "__init__"
             and (not user_id or d.metadata.get("user_id") == user_id)
         ]
+
         if not matches:
-            _log(f"RAG: no matches for user={user_id[:8]} (total vectors={total})")
+            _log(f"RAG: 0 matches for user={user_id[:8]} (index has {total} vectors)")
             return ""
 
         _log(f"RAG: {len(matches)} chunks retrieved for user={user_id[:8]}")
@@ -108,7 +119,6 @@ def search_documents(query: str, user_id: str = "", k: int = 4) -> str:
 
 
 def delete_by_source(filename: str, user_id: str = ""):
-    global _vectorstore
     vs = get_vectorstore()
     ids_to_remove = [
         doc_id for doc_id, doc in vs.docstore._dict.items()

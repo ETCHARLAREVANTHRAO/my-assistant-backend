@@ -18,12 +18,18 @@ async def lifespan(_: FastAPI):
     get_vectorstore()  # initialise FAISS index
 
     # Rebuild FAISS from Firestore so documents survive Render restarts
+    from app.core.vectorstore import _log
     try:
-        for doc in firestore_service.get_all_documents():
+        all_docs = firestore_service.get_all_documents()
+        _log(f"STARTUP: rebuilding FAISS from {len(all_docs)} Firestore documents")
+        for doc in all_docs:
             if doc.get("text"):
-                ingest_text(doc["text"], doc["filename"], doc["user_id"])
-    except Exception:
-        pass  # Firebase may not be ready in local dev without credentials
+                try:
+                    ingest_text(doc["text"], doc["filename"], doc["user_id"])
+                except Exception as e:
+                    _log(f"STARTUP: failed to ingest {doc.get('filename')}: {e}")
+    except Exception as e:
+        _log(f"STARTUP: Firestore rebuild failed: {e}")
 
     yield
 
