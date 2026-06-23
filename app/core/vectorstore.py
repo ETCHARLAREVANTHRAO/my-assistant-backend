@@ -12,11 +12,8 @@ _vectorstore: FAISS | None = None
 def get_embeddings():
     global _embeddings
     if _embeddings is None:
-        from langchain_community.embeddings import HuggingFaceEmbeddings
-        _embeddings = HuggingFaceEmbeddings(
-            model_name="all-MiniLM-L6-v2",
-            model_kwargs={"device": "cpu"},
-        )
+        from langchain_community.embeddings import FastEmbedEmbeddings
+        _embeddings = FastEmbedEmbeddings(model_name="BAAI/bge-small-en-v1.5")
     return _embeddings
 
 
