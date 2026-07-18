@@ -44,7 +44,7 @@ MAX_HISTORY_TURNS = 10
 
 def _get_llm() -> ChatGroq:
     return ChatGroq(
-        model="qwen/qwen3-32b",
+        model="llama-3.3-70b-versatile",
         api_key=GROQ_API_KEY,
         max_tokens=1024,
         http_client=_http_client,

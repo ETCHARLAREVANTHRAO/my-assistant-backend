@@ -29,7 +29,7 @@ backend/
 
 ## Key Design Decisions
 
-- **LLM**: Groq `qwen/qwen3-32b` — fast inference, free tier available.
+- **LLM**: Groq `llama-3.3-70b-versatile` — fast inference, free tier available.
 - **Vector store**: FAISS (not ChromaDB) — no native dependencies, works on Render free tier.
 - **Embeddings**: Dual mode:
   - Local dev (no `HF_API_TOKEN`): `sentence-transformers/all-MiniLM-L6-v2` downloaded locally (~90 MB).
