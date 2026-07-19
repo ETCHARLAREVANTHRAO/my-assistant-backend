@@ -61,7 +61,26 @@ def _extract_text(content_bytes: bytes, filename: str) -> str:
     if ext == "pdf":
         from pypdf import PdfReader
         reader = PdfReader(io.BytesIO(content_bytes))
-        return "\n\n".join(page.extract_text() or "" for page in reader.pages)
+        text = "\n\n".join(page.extract_text() or "" for page in reader.pages)
+        if text.strip():
+            return text
+
+        # No embedded text layer (scanned/image-only pages) — OCR each rendered page.
+        try:
+            import pypdfium2 as pdfium
+            import pytesseract
+            pdf = pdfium.PdfDocument(content_bytes)
+            try:
+                pages_text = []
+                for page in pdf:
+                    bitmap = page.render(scale=2.0)
+                    pages_text.append(pytesseract.image_to_string(bitmap.to_pil()))
+                    page.close()
+                return "\n\n".join(pages_text)
+            finally:
+                pdf.close()
+        except Exception as e:
+            return f"[PDF OCR failed: {e}]"
 
     if ext == "docx":
         from docx import Document as DocxDocument

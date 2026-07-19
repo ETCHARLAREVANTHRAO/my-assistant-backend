@@ -185,3 +185,15 @@ Would you like additional details like UV index, precipitation chances, or a for
 [2026-07-19 16:19:17] Supabase: added 2 chunks for user=test-use
 [2026-07-19 16:19:17] RAG: 2 chunks retrieved for user=test-use
 [2026-07-19 16:19:17] Supabase: deleted chunks for source=test.txt user=test-use
+[2026-07-19 17:06:49] Supabase client initialised
+[2026-07-19 17:06:51] Embeddings loaded (BAAI/bge-small-en-v1.5)
+[2026-07-19 17:06:52] Supabase: added 1 chunks for user=__global
+[2026-07-19 17:06:52] Supabase: added 1 chunks for user=test-per
+[2026-07-19 17:06:52] RAG: 2 chunks retrieved for user=test-per
+[2026-07-19 17:06:52] Supabase: deleted chunks for source=global_test.txt user=__global
+[2026-07-19 17:06:53] Supabase: deleted chunks for source=personal_test.txt user=test-per
+[2026-07-19 17:10:02] Supabase client initialised
+[2026-07-19 17:12:28] DRIVE SYNC ERROR [4._DE_TH.pdf]: No text could be extracted from the file.
+[2026-07-19 17:12:37] DRIVE SYNC ERROR [10._CN_TH.pdf]: No text could be extracted from the file.
+[2026-07-19 17:12:47] DRIVE SYNC ERROR [11._Maths_TH.pdf]: No text could be extracted from the file.
+[2026-07-19 17:12:51] DRIVE SYNC ERROR [6._ALGO_TH.pdf]: No text could be extracted from the file.

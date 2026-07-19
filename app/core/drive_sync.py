@@ -15,7 +15,8 @@ SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
 # from Drive. Never a real Firebase UID, so it can't collide with a real user
 # and is invisible in any per-user Documents listing (which is keyed by the
 # caller's own UID) — it only surfaces as retrieved context during chat.
-GLOBAL_KNOWLEDGE_USER_ID = "__global__"
+# NOTE: can't use "__global__" — Firestore reserves document IDs matching __...__.
+GLOBAL_KNOWLEDGE_USER_ID = "global-knowledge-base"
 
 # Native Google Docs types have no raw bytes — they must be exported to a real format.
 GOOGLE_DOC_EXPORTS = {
