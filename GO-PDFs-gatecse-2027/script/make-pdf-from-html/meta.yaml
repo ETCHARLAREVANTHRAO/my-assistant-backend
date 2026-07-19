@@ -1,0 +1,169 @@
+alias: make-pdf-from-html
+automation_alias: script
+automation_uid: 5b4e0237da074764
+cache: false
+tags:
+- make
+- from-html
+- pdf
+deps:
+  - tags: get,wkhtmltopdf,_with-qt
+  - tags: get,go,html
+    skip_if_env:
+      MLC_HTML_FILE_PATH:
+      - on
+  - env:
+      MLC_CACHE_DIR_ENV_NAME: MLC_GO_PDFS_OUT
+    extra_cache_tags: go-pdfs-out,pdfs,go
+    tags: get,cache,dir,_name.go-pdfs-out
+uid: 403a21dfa7bc434a
+new_env_keys:
+  - MLC_PDF_FILE_PATH
+  - MLC_GO_PDFS_OUT
+input_mapping:
+  input: MLC_HTML_FILE_PATH
+default_env:
+  MLC_GO_PDF_JS_DELAY: 168800
+  MLC_GO_PDF_SCALE: '1.0'
+variations:
+  go-da:
+    group: branch
+    env:
+      MLC_GO_PDF_BRANCH: da
+      MLC_GO_PDF_TITLE: 'GATEOverflow for GATE DA'
+      MLC_GO_HTML_FOLDER_NAME: gate_overflow_for_gate_cse
+      MLC_GO_PDF_JS_DELAY: 3880000
+      MLC_GO_PDF_SCALE: '1.0'
+      MLC_GO_HTML_FILE_NAME: book_gate_da.html 
+      MLC_GO_PDF_NAME: da.pdf
+  go-em:
+    group: branch
+    env:
+      MLC_GO_PDF_BRANCH: cse
+      MLC_GO_PDF_TITLE: 'GATEOverflow for GATECSE'
+      MLC_GO_HTML_FOLDER_NAME: gate_overflow_for_gate_cse
+      MLC_GO_PDF_JS_DELAY: 1688000
+      MLC_GO_PDF_SCALE: '0.6'
+      MLC_GO_HTML_FILE_NAME: book_gate_em.html 
+      MLC_GO_PDF_NAME: em.pdf
+  go-cse:
+    group: branch
+    default: true
+    env:
+      MLC_GO_PDF_BRANCH: cse
+      MLC_GO_PDF_TITLE: 'GATEOverflow for GATE CSE'
+      MLC_GO_HTML_FOLDER_NAME: gate_overflow_for_gate_cse
+  go-ece:
+    group: branch
+    env:
+      MLC_GO_PDF_BRANCH: ece
+      MLC_GO_PDF_TITLE: 'GATEOverflow for GATE ECE'
+      MLC_GO_HTML_FOLDER_NAME: gate_overflow_for_gate_ece
+      MLC_GO_HTML_FILE_NAME: book.html 
+      MLC_GO_PDF_JS_DELAY: 168800
+      MLC_GO_PDF_NAME: ece.pdf
+  go-ee:
+    group: branch
+    env:
+      MLC_GO_PDF_BRANCH: ee
+      MLC_GO_PDF_TITLE: 'GATEOverflow for GATE Electrical Engineering'
+      MLC_GO_HTML_FOLDER_NAME: gate_overflow_for_gate_electrical
+      MLC_GO_HTML_FILE_NAME: book.html 
+      MLC_GO_PDF_JS_DELAY: 168800
+      MLC_GO_PDF_NAME: ee.pdf
+  go-me:
+    group: branch
+    env:
+      MLC_GO_PDF_BRANCH: me
+      MLC_GO_PDF_TITLE: 'GATEOverflow for GATE Mechanical Engineering'
+      MLC_GO_HTML_FOLDER_NAME: gate_overflow_for_gate_mechanical
+      MLC_GO_HTML_FILE_NAME: book.html 
+      MLC_GO_PDF_JS_DELAY: 168800
+      MLC_GO_PDF_NAME: me.pdf
+  go-ce:
+    group: branch
+    env:
+      MLC_GO_PDF_BRANCH: ce
+      MLC_GO_PDF_TITLE: 'GATEOverflow for GATE Civil Engineering'
+      MLC_GO_HTML_FOLDER_NAME: gate_overflow_for_civil_engineering
+      MLC_GO_HTML_FILE_NAME: book.html 
+      MLC_GO_PDF_JS_DELAY: 168800
+      MLC_GO_PDF_NAME: ce.pdf
+  isro:
+    group: exam
+  tifr:
+    group: exam
+  nielit:
+    group: exam
+  ugcnet:
+    group: exam
+
+  go-cse,isro:
+    default_env:
+      MLC_GO_PDF_JS_DELAY: 1788000
+      MLC_GO_HTML_FILE_NAME: book_filter2.html 
+      MLC_GO_PDF_SCALE: '0.7'
+      MLC_GO_PDF_NAME: isro.pdf
+
+  go-cse,tifr:
+    default_env:
+      MLC_GO_PDF_JS_DELAY: 6588000
+      MLC_GO_HTML_FILE_NAME: book_filter5.html 
+      MLC_GO_PDF_SCALE: '0.7'
+      MLC_GO_PDF_NAME: tifr.pdf
+
+  go-cse,nielit:
+    default_env:
+      MLC_GO_PDF_JS_DELAY: 6988000
+      MLC_GO_HTML_FILE_NAME: book_filter4.html 
+      MLC_GO_PDF_SCALE: '0.7'
+      MLC_GO_PDF_NAME: nielit.pdf
+
+  go-cse,ugcnet:
+    default_env:
+      MLC_GO_PDF_JS_DELAY: 8788000
+      MLC_GO_HTML_FILE_NAME: book_filter6.html 
+      MLC_GO_PDF_SCALE: '0.7'
+      MLC_GO_PDF_NAME: ugcnet.pdf
+
+  vol1:
+    group: volume
+    default: true
+  vol2:
+    group: volume
+  vol3:
+    group: volume
+
+  go-cse,vol1:
+    default_env:
+      MLC_GO_PDF_JS_DELAY: 8488000
+      MLC_GO_HTML_FILE_NAME: book_filter1_volume1.html 
+      MLC_GO_PDF_SCALE: '0.7'
+      MLC_GO_PDF_NAME: filter1_volume1.pdf
+  go-cse,vol2:
+    default_env:
+      MLC_GO_PDF_JS_DELAY: 8880000 
+      MLC_GO_HTML_FILE_NAME: book_filter1_volume2.html 
+      MLC_GO_PDF_SCALE: '1.0'
+      MLC_GO_PDF_NAME: filter1_volume2.pdf
+
+  go-cse,vol3:
+    default_env:
+      MLC_GO_PDF_JS_DELAY: 8880000 
+      MLC_GO_HTML_FILE_NAME: book_filter1_volume3.html 
+      MLC_GO_PDF_SCALE: '1.0'
+      MLC_GO_PDF_NAME: filter1_volume3.pdf
+
+  go-cse,vol2,with-answers:
+    env:
+      MLC_GO_PDF_JS_DELAY: 18880000 
+  with-answers:
+    env:
+      MLC_GO_PDF_WITH_ANSWERS: yes
+
+  go-cse,vol3,with-answers:
+    env:
+      MLC_GO_PDF_JS_DELAY: 18880000 
+  with-answers:
+    env:
+      MLC_GO_PDF_WITH_ANSWERS: yes

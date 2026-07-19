@@ -1,0 +1,36 @@
+name: Build GO PDF
+
+on:
+  schedule:
+    - cron: "1 1 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  go-pdf-make:
+    runs-on: intel-spr
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        book: ["_go-cse,_vol1", "_go-cse,_vol2", "_go-em", "_go-da"]
+        
+  
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Configure git longpaths (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        git config --system core.longpaths true
+
+    - name: Install mlc-scripts
+      run: |
+        pip install mlc-scripts
+        mlc pull repo gateoverflow@go-pdfs
+
+    - name: Test Build (Linux/macOS)
+      run: |
+        #mlcr download,file --url=https://github.com/GATEOverflow/GO-PDFs/releases/download/ugcnet/book_filter6.html
+        mlcr make,go,pdf,${{ matrix.book }} -v --quiet --skip_cover
+      
