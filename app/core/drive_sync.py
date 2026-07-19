@@ -11,6 +11,12 @@ from .rag import _log, ingest_document
 
 SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
 
+# Reserved pseudo-user for the shared admin-curated knowledge base ingested
+# from Drive. Never a real Firebase UID, so it can't collide with a real user
+# and is invisible in any per-user Documents listing (which is keyed by the
+# caller's own UID) — it only surfaces as retrieved context during chat.
+GLOBAL_KNOWLEDGE_USER_ID = "__global__"
+
 # Native Google Docs types have no raw bytes — they must be exported to a real format.
 GOOGLE_DOC_EXPORTS = {
     "application/vnd.google-apps.document": ("text/plain", "txt"),
@@ -84,14 +90,17 @@ def _download_file(file: dict) -> tuple[bytes, str]:
     return buf.getvalue(), name
 
 
-def sync_folder(folder_id: str, user_id: str) -> dict:
+def sync_folder(folder_id: str) -> dict:
     """
     List files in the given Drive folder and ingest any new/changed ones into
-    this user's RAG document store. Unsupported file types are skipped.
+    the shared global knowledge base (GLOBAL_KNOWLEDGE_USER_ID) — never a
+    per-user bucket. Every user's chat queries draw on this automatically,
+    alongside whatever they've personally uploaded, but it never appears in
+    anyone's Documents list or storage quota. Unsupported file types are skipped.
     Returns {"ingested": [...], "skipped": [...], "failed": [...]}.
     """
     files = list_folder_files(folder_id)
-    already_synced = firestore_service.get_drive_sync_state(user_id)
+    already_synced = firestore_service.get_drive_sync_state(GLOBAL_KNOWLEDGE_USER_ID)
 
     ingested, skipped, failed = [], [], []
 
@@ -107,9 +116,13 @@ def sync_folder(folder_id: str, user_id: str) -> dict:
 
         try:
             content_bytes, filename = _download_file(f)
-            chunks, text = ingest_document(content_bytes, filename, user_id)
-            firestore_service.add_document(user_id, filename, len(content_bytes), chunks, text)
-            firestore_service.set_drive_sync_state(user_id, f["id"], f["modifiedTime"], filename)
+            chunks, text = ingest_document(content_bytes, filename, GLOBAL_KNOWLEDGE_USER_ID)
+            firestore_service.add_document(
+                GLOBAL_KNOWLEDGE_USER_ID, filename, len(content_bytes), chunks, text
+            )
+            firestore_service.set_drive_sync_state(
+                GLOBAL_KNOWLEDGE_USER_ID, f["id"], f["modifiedTime"], filename
+            )
             ingested.append(filename)
         except Exception as e:
             _log(f"DRIVE SYNC ERROR [{f['name']}]: {e}")

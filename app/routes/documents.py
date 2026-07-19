@@ -3,7 +3,7 @@ import os
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from app.models import DocumentUploadResponse, DocumentListResponse
 from app.core.rag import ingest_document, delete_document, _log
-from app.core.auth import verify_token
+from app.core.auth import verify_token, verify_admin_token
 from app.core import firestore_service
 from app.core import drive_sync
 
@@ -77,12 +77,14 @@ async def delete_doc(filename: str, user_id: str = Depends(verify_token)):
 
 
 @router.post("/drive-sync")
-async def drive_sync_endpoint(user_id: str = Depends(verify_token)):
+async def drive_sync_endpoint(_admin_uid: str = Depends(verify_admin_token)):
+    """Admin-only: sync the shared Drive folder into the global knowledge base
+    used as background context for every user's chat — never a per-user document."""
     folder_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "").strip()
     if not folder_id:
         raise HTTPException(status_code=400, detail="GOOGLE_DRIVE_FOLDER_ID is not configured.")
     try:
-        result = drive_sync.sync_folder(folder_id, user_id)
+        result = drive_sync.sync_folder(folder_id)
     except Exception as e:
         _log(f"DRIVE SYNC FAILED: {e}")
         raise HTTPException(status_code=500, detail=str(e))

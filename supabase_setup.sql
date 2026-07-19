@@ -18,6 +18,10 @@ create index if not exists document_chunks_embedding_idx on document_chunks
 
 -- RPC used by the backend for similarity search (pgvector's <=> operator
 -- isn't reachable through the normal PostgREST table filters).
+--
+-- Matches chunks from BOTH the calling user's own documents AND the shared
+-- '__global__' knowledge base (admin-curated material synced from Drive),
+-- ranked together by relevance. '__global__' is never a real Firebase UID.
 create or replace function match_document_chunks(
   query_embedding vector(384),
   match_user_id text,
@@ -37,7 +41,7 @@ as $$
     document_chunks.content,
     1 - (document_chunks.embedding <=> query_embedding) as similarity
   from document_chunks
-  where document_chunks.user_id = match_user_id
+  where document_chunks.user_id = match_user_id or document_chunks.user_id = '__global__'
   order by document_chunks.embedding <=> query_embedding
   limit match_count;
 $$;
