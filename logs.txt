@@ -180,3 +180,8 @@ Let me know! 😊
 
 Would you like additional details like UV index, precipitation chances, or a forecast for tomorrow? 😊
 [2026-06-22 17:53:59] ------------------------------------------------------------
+[2026-07-19 16:19:12] Supabase client initialised
+[2026-07-19 16:19:16] Embeddings loaded (BAAI/bge-small-en-v1.5)
+[2026-07-19 16:19:17] Supabase: added 2 chunks for user=test-use
+[2026-07-19 16:19:17] RAG: 2 chunks retrieved for user=test-use
+[2026-07-19 16:19:17] Supabase: deleted chunks for source=test.txt user=test-use

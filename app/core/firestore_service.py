@@ -37,6 +37,20 @@ def delete_document(user_id: str, filename: str):
     get_db().collection("users").document(user_id).collection("documents").document(filename).delete()
 
 
+def get_drive_sync_state(user_id: str) -> dict:
+    """Returns {drive_file_id: modified_time} for files already synced from Drive."""
+    docs = get_db().collection("users").document(user_id).collection("drive_sync").stream()
+    return {d.id: d.to_dict().get("modified_time") for d in docs}
+
+
+def set_drive_sync_state(user_id: str, file_id: str, modified_time: str, filename: str):
+    get_db().collection("users").document(user_id).collection("drive_sync").document(file_id).set({
+        "modified_time": modified_time,
+        "filename": filename,
+        "synced_at": fb_firestore.SERVER_TIMESTAMP,
+    })
+
+
 def get_all_documents() -> list[dict]:
     """Return every document across all users — used to rebuild FAISS on startup."""
     result = []

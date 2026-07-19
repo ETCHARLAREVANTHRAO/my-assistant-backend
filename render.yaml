@@ -9,5 +9,7 @@ services:
         sync: false
       - key: weather
         sync: false
-      - key: CHROMA_PERSIST_DIR
-        value: ./faiss_index
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false

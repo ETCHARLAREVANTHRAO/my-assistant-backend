@@ -105,25 +105,6 @@ def ingest_document(content_bytes: bytes, filename: str, user_id: str = "") -> t
     return len(docs), text
 
 
-def ingest_text(text: str, filename: str, user_id: str):
-    """Re-ingest already-extracted text into FAISS (used at startup to rebuild from Firestore)."""
-    if not text.strip():
-        return
-    ext = filename.rsplit(".", 1)[-1].lower()
-    char_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
-    if ext == "md":
-        header_splitter = MarkdownHeaderTextSplitter(
-            headers_to_split_on=[("#", "h1"), ("##", "h2"), ("###", "h3")],
-            strip_headers=False,
-        )
-        docs = char_splitter.split_documents(header_splitter.split_text(text))
-    else:
-        docs = char_splitter.create_documents([text])
-    for doc in docs:
-        doc.metadata["source"] = filename
-    add_documents(docs, user_id)
-
-
 def delete_document(filename: str, user_id: str = ""):
     delete_by_source(filename, user_id)
 

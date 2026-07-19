@@ -16,9 +16,12 @@ backend/
 │   └── core/
 │       ├── rag.py           ← Chat loop: RAG + tool calling + conversation history
 │       ├── tools.py         ← LangChain @tool definitions
-│       ├── vectorstore.py   ← FAISS + HuggingFace embeddings (dual: local / Inference API)
+│       ├── vectorstore.py   ← Supabase/pgvector store + fastembed embeddings
+│       ├── drive_sync.py    ← Google Drive → RAG document auto-import
+│       ├── auth.py          ← Firebase ID token verification
+│       ├── firestore_service.py ← Per-user document metadata + Drive sync state
 │       └── weather_service.py ← OpenWeatherMap HTTP client
-├── faiss_index/             ← Created at runtime; stores vector embeddings
+├── supabase_setup.sql       ← One-time SQL: pgvector table + similarity-search RPC
 ├── logs.txt                 ← Debug log appended on every chat turn
 ├── calendar.json            ← Calendar events (created at runtime)
 ├── requirements.txt
@@ -30,12 +33,11 @@ backend/
 ## Key Design Decisions
 
 - **LLM**: Groq `llama-3.3-70b-versatile` — fast inference, free tier available.
-- **Vector store**: FAISS (not ChromaDB) — no native dependencies, works on Render free tier.
-- **Embeddings**: Dual mode:
-  - Local dev (no `HF_API_TOKEN`): `sentence-transformers/all-MiniLM-L6-v2` downloaded locally (~90 MB).
-  - Render (with `HF_API_TOKEN`): HuggingFace Inference API — no local model, avoids OOM on 512 MB RAM.
+- **Vector store**: Supabase (Postgres + `pgvector`) — persists natively across restarts, similarity search via a `match_document_chunks` RPC (pgvector's `<=>` operator isn't reachable through normal PostgREST table filters).
+- **Embeddings**: `fastembed` (`BAAI/bge-small-en-v1.5`, 384-dim, ONNX) — no PyTorch, runs locally on both dev and Render.
 - **Tool calling**: Manual `bind_tools()` loop (up to 5 iterations) — avoids `AgentExecutor` compatibility issues with Groq.
-- **Document search**: FAISS queried directly before the LLM call; not exposed as a tool (prevents Groq hallucinating tool calls for it).
+- **Document search**: Supabase queried directly before the LLM call; not exposed as a tool (prevents Groq hallucinating tool calls for it).
+- **Drive sync**: `POST /documents/drive-sync` lists files in a shared Drive folder (service account, read-only) and ingests any new/changed ones into the calling user's document store — same pipeline as manual upload.
 - **SSL**: All outbound HTTP clients use `verify=False` for corporate network compatibility.
 - **Chunking**: Files split by character size (800 chars, 100 overlap). Markdown also split by headers first.
 
@@ -71,8 +73,8 @@ pip install -r requirements.txt
 
 # Create your .env
 copy .env.example .env
-# Fill in GROQ_API_KEY and weather (OpenWeatherMap key)
-# Leave HF_API_TOKEN blank for local dev (uses local model)
+# Fill in GROQ_API_KEY, weather (OpenWeatherMap key), SUPABASE_URL, SUPABASE_SERVICE_KEY
+# Run backend/supabase_setup.sql once in the Supabase SQL Editor before first use
 
 # Run
 uvicorn app.main:app --reload --port 8000
@@ -89,8 +91,9 @@ Debug logs: `backend/logs.txt` (appended live, view with any text editor)
 3. Set environment variables:
    - `GROQ_API_KEY`
    - `weather` (OpenWeatherMap key)
-   - `HF_API_TOKEN` (HuggingFace token — required on Render)
-   - `CHROMA_PERSIST_DIR=/app/faiss_index`
+   - `FIREBASE_SERVICE_ACCOUNT_JSON` (full service account JSON, one line)
+   - `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`
+   - `GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON`, `GOOGLE_DRIVE_FOLDER_ID` (optional — only if Drive sync is used)
 4. Render auto-detects `Dockerfile` and builds
 
 Live backend: `https://my-assistant-backend-nxwg.onrender.com`
@@ -103,5 +106,6 @@ Live backend: `https://my-assistant-backend-nxwg.onrender.com`
 | `GET` | `/documents` | List ingested documents |
 | `POST` | `/documents/upload` | Upload any supported file (multipart) |
 | `DELETE` | `/documents/{filename}` | Remove a document |
+| `POST` | `/documents/drive-sync` | Sync new/changed files from the configured Drive folder |
 | `GET` | `/weather?city=...` | Current weather for a city |
 | `GET` | `/health` | Health check |

@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from langchain_core.tools import tool
 
-from .vectorstore import get_vectorstore
+from . import vectorstore
 
 CALENDAR_FILE = Path("./calendar.json")
 OPENWEATHER_API_KEY = os.getenv("weather")
@@ -14,14 +14,8 @@ OPENWEATHER_API_KEY = os.getenv("weather")
 @tool
 def search_documents(query: str) -> str:
     """Search the user's uploaded documents for relevant information."""
-    vs = get_vectorstore()
-    docs = vs.as_retriever(search_kwargs={"k": 4}).invoke(query)
-    docs = [d for d in docs if d.metadata.get("source") != "__init__"]
-    if not docs:
-        return "No relevant content found in uploaded documents."
-    return "\n\n---\n\n".join(
-        f"[{d.metadata.get('source', 'unknown')}]\n{d.page_content}" for d in docs
-    )
+    result = vectorstore.search_documents(query)
+    return result or "No relevant content found in uploaded documents."
 
 
 @tool

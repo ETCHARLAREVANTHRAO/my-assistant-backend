@@ -6,12 +6,11 @@ python-multipart==0.0.12
 # LangChain RAG stack (let pip resolve compatible versions)
 langchain>=0.3.9
 langchain-groq>=0.2.3
-langchain-community>=0.3.9
 langchain-core>=0.3.29
 langchain-text-splitters>=0.3.2
 
-# Vector store (pre-built Windows wheels, no C++ compiler needed)
-faiss-cpu>=1.12.0
+# Vector store: Supabase / pgvector
+supabase>=2.31.0
 
 # Lightweight local embeddings via ONNX — no PyTorch, fits Render free tier
 fastembed>=0.3.0
@@ -31,3 +30,8 @@ pytesseract>=0.3.10
 
 # Firebase authentication
 firebase-admin>=6.5.0
+
+# Google Drive sync
+google-api-python-client>=2.100.0
+google-auth>=2.23.0
+google-auth-httplib2>=0.2.0
