@@ -5,5 +5,12 @@ __pycache__/
 *.pyc
 *.pyo
 *.egg-info/
+
+# PYQ ingestion working artifacts (regenerable — not source)
+pyq_ingestion/cs_ocr_cache/
+pyq_ingestion/*.json
+pyq_ingestion/*.log
+pyq_ingestion/*chapter*.txt
+*.log
 .venv/
 venv/

@@ -2,8 +2,9 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+import httpx
 from langchain_core.embeddings import Embeddings
-from supabase import create_client, Client
+from supabase import create_client, Client, ClientOptions
 
 _LOG_FILE = Path("./logs.txt")
 
@@ -63,7 +64,11 @@ def get_vectorstore() -> Client:
         key = os.getenv("SUPABASE_SERVICE_KEY", "").strip()
         if not url or not key:
             raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set.")
-        _supabase = create_client(url, key)
+        # verify=False: corporate network SSL inspection intermittently breaks
+        # certificate validation for outbound HTTPS (same reason rag.py disables
+        # it for the Groq/weather HTTP clients).
+        options = ClientOptions(httpx_client=httpx.Client(verify=False))
+        _supabase = create_client(url, key, options=options)
         _log("Supabase client initialised")
     return _supabase
 

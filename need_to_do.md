@@ -2,66 +2,43 @@
 
 ## ✅ What Has Been Done
 
-### 1. Architecture & Design
-- Designed full system architecture for the interactive PYQ (Previous Year Questions) exam feature.
-- Defined JSON schema for structured question storage (question text, options, correct answer, explanation, subject, marks).
-- Designed two new Supabase tables: `gate_questions` and `gate_exam_attempts`.
+### 1. Architecture — revised
+Originally planned as a separate `exam-rag-backend` service; **consolidated into the existing `my-assistant-backend`** instead (reuses the same Supabase project, Firebase auth, and patterns already in place). The `exam-rag-backend` repo referenced in earlier notes is not part of this plan anymore.
 
-### 2. GO-PDFs Generator Folder
-- Added `GO-PDFs-gatecse-2027/` to this backend repo.
-- This contains the MLCFlow automation scripts that compile HTML dumps from GATEOverflow into offline PDFs.
-- The HTML files (not included — private to GATEOverflow) are the cleanest source for structured question parsing.
+### 2. Database Schema
+`supabase_pyq_setup.sql` creates:
+- `gate_questions` — year, subject, type (MCQ/MSQ/NAT/DESCRIPTIVE), question text, options, correct answer, marks. Unique key is `(year, subject, original_label, set_label)` — `question_number` alone isn't reliable since old GATE papers use non-integer numbering (`9d`, `1.25`) and some years split into multiple sets that restart numbering.
+- `gate_exam_attempts` — per-user exam sessions, answers, scores.
+- Both tables are live in Supabase (created via the pooler connection — see `pyq_ingestion/README.md` for why the direct connection doesn't work from this network).
 
-### 3. Database Schema
-- Created `supabase_pyq_setup.sql` with:
-  - `gate_questions` table — stores year, question number, subject, type (MCQ/MSQ/NAT), question text, options, correct answers, explanations, marks.
-  - `gate_exam_attempts` table — stores per-user exam sessions, answers, scores, and status.
-- **ACTION REQUIRED**: Run this SQL in your Supabase SQL Editor to create the tables.
+### 3. Ingestion Pipeline (`pyq_ingestion/`)
+Working end-to-end, validated on one chapter:
+- `extract_compiled_chapter.py` — parses a GATEOverflow compiled-book chapter (Answer Keys via regex, question structuring via LLM — never inventing missing content).
+- `finalize_and_insert.py` — classifies gradability from the answer value itself, upserts into `gate_questions`.
+- `ocr_year_papers.py` — OCRs the original year-wise scanned papers (`CS/CS/*.pdf` in the shared Drive folder).
+- `enrich_options_from_year_papers.py` — fills blank MCQ options by cross-referencing the OCR'd year papers, matching by question content.
 
-### 4. PDF Parser Script
-- Wrote regex-based PDF parser (`parse_and_ingest_pyqs.py`) that:
-  - Reads GATE solution PDFs from `D:\Desktop files\Gate imp\Gate papers\` (2019–2023).
-  - Extracts questions, options (A/B/C/D), correct answers, and explanations.
-  - Auto-classifies each question's subject (OS, Networks, Algorithms, DBMS, etc.).
-  - Uploads parsed questions directly to Supabase `gate_questions` table.
-- **ACTION REQUIRED**: Run `parse_and_ingest_pyqs.py` after database setup.
+**Validated result:** Graph Theory chapter (volume 1) → 17 gradable questions ingested, 3 of 4 MCQs enriched with real option text from year papers.
 
 ---
 
 ## ❌ What Still Needs To Be Done
 
-### Backend (`exam-rag-backend`)
-- [ ] **Run Supabase setup SQL**: Open Supabase → SQL Editor → paste & run `supabase_pyq_setup.sql`.
-- [ ] **Run the ingestion script**: `python parse_and_ingest_pyqs.py` to parse local PDFs and populate `gate_questions` table.
-- [ ] **Update Groq API key** in `exam-rag-backend/.env` — current key is expired. Get a new one at https://console.groq.com
-- [ ] The 3 new API endpoints are already written in `exam-rag-backend/app/routes/pyq.py`:
-  - `GET /pyq/years` — list available years + user's best score
-  - `GET /pyq/exam/{year}` — fetch all questions for a year (no answer keys sent to client)
-  - `POST /pyq/exam/{year}/submit` — grade answers and return solutions
+### Ingestion — most of the corpus remains
+- [ ] Process the rest of `filter1_volume1.pdf`'s chapters (Combinatorics, Mathematical Logic, and whatever else volume 1 covers beyond Graph Theory)
+- [ ] Process `filter1_volume2.pdf` and `filter1_volume3.pdf` entirely (likely Algorithms, OS, DBMS, Networks, TOC, Digital Logic, COA, etc.)
+- [ ] Same pipeline (`extract_compiled_chapter.py` → `finalize_and_insert.py` → `enrich_options_from_year_papers.py`) applies to each chapter — just needs the page-range/chapter-boundary lookup repeated per chapter
+- [ ] Repair or re-source the 4 corrupted year papers (`CS2011`, `CS2012`, `CS1-2017`, `CS2-2021`) if better copies become available — currently unreadable by any method
+- [ ] 2015 Set 2/3 papers aren't in the Drive folder at all — some enrichment matches can't be attempted for that year
 
-### Mobile App (`my-assistant-mobile`)
-- [ ] **Add PYQ API service** to `src/services/api.ts`:
-  - `pyqApi.getYears(userId)`
-  - `pyqApi.getExam(year)`
-  - `pyqApi.submitExam(year, userId, answers)`
-- [ ] **Build Year Selector screen** — grid of cards showing year, user best score, status badge.
-- [ ] **Build Exam Interface screen** — 3-hour timer, question view with MCQ/NAT inputs, question number drawer (green/grey/yellow).
-- [ ] **Build Results / Review screen** — score breakdown, subject-wise analytics, per-question correct/wrong review.
-- [ ] **Add navigation** — wire up the new screens to the existing tab/stack navigator.
+### API endpoints (not started)
+- [ ] `GET /pyq/years` — list available years + user's best score
+- [ ] `GET /pyq/exam/{year}` — fetch questions for a year (no answer keys sent to client)
+- [ ] `POST /pyq/exam/{year}/submit` — grade answers, return solutions, write to `gate_exam_attempts`
 
-### Data Quality Improvements
-- [ ] Handle MSQ (Multiple Select Questions) parsing — currently defaults to MCQ.
-- [ ] Handle NAT (Numerical Answer Type) questions with decimal range grading.
-- [ ] Parse GATEOverflow HTML book files for richer, more accurate Q&A extraction.
-- [ ] Add 2024 and 2025 question papers when available locally.
+### Web app (`my-assistant-mobile/web/`)
+- [ ] Wire the existing (currently mock-data) Quiz pages to these real endpoints
+- [ ] Build a year/exam selector, timed exam interface, and results/review screen
 
----
-
-## 📁 File Reference
-
-| File | Location | Purpose |
-|------|----------|---------|
-| `supabase_pyq_setup.sql` | `my-assistant-backend/` | Run in Supabase SQL Editor to create DB tables |
-| `parse_and_ingest_pyqs.py` | Scratch/scripts folder | Parse local PDFs → upload to Supabase |
-| `app/routes/pyq.py` | `exam-rag-backend/` | FastAPI endpoints for PYQ feature |
-| `GO-PDFs-gatecse-2027/` | `my-assistant-backend/` | GATEOverflow PDF generation pipeline scripts |
+### Data quality
+- [ ] Only ~19% of source questions per chapter end up gradable at present (mostly NAT) — MCQ/MSQ yield is much lower due to blank math options in the compiled book. Enrichment from year papers helps prose-based questions only.

@@ -4,16 +4,18 @@
 create table if not exists public.gate_questions (
     id uuid default gen_random_uuid() primary key,
     year int not null,
-    question_number int not null,
+    question_number int not null, -- leading numeric part only, for sorting/display; NOT a unique key (see original_label)
+    original_label text, -- the true source identifier, e.g. "38", "9d", "1.25" — old GATE papers used non-integer numbering
+    set_label text, -- "Set 1"/"Set 2"/null — some years split into multiple sessions that restart numbering
     subject text,
-    type text check (type in ('MCQ', 'MSQ', 'NAT')),
+    type text check (type in ('MCQ', 'MSQ', 'NAT', 'DESCRIPTIVE')),
     question_text text not null,
-    options jsonb, -- e.g. {"A": "...", "B": "..."} or null for NAT
-    correct_answer jsonb not null, -- e.g. ["A"] for MCQ, ["A", "C"] for MSQ, or numeric value/range for NAT
+    options jsonb, -- e.g. {"A": "...", "B": "..."} or null for NAT/DESCRIPTIVE
+    correct_answer jsonb not null, -- e.g. ["A"] for MCQ, ["A", "C"] for MSQ, or {"value": N} / {"min":a,"max":b} for NAT
     explanation text,
     marks int default 1,
     created_at timestamptz default now(),
-    unique (year, question_number)
+    unique (year, subject, original_label, set_label)
 );
 
 -- 2. Create gate_exam_attempts table
